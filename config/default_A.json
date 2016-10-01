@@ -1,0 +1,7 @@
+{
+	 "EventStream": {
+    "wsConfig": {
+      "serviceID": "khumps"
+    }
+  }
+}
