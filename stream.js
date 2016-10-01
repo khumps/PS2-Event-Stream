@@ -1,24 +1,27 @@
 var WebSocket = require('ws');
 var config = require('config');
 var queryString = require("querystring");
-var mysql = require('mysql');
-
-
+var useSQL = config.get('useSQL');
+if (useSQL)
+    var mysql = require('mysql');
 var serviceID = config.get('serviceID');
-var debug = true;
+var debug = false;
+var showMessages = true;
 var ws = new WebSocket("wss://push.planetside2.com/streaming?environment=ps2&service-id=s:" + serviceID);
 
 // Opens Websocket
 ws.on('open', function open() {
     console.log("Connected");
-    send("test");
+    subscribe(["all"], ["all"], ["all"]);
+    unsubscribe(["all"], ["all"], ["all"]);
 });
 
 // Executed whenever ws recieves a message
 ws.on('message', function incoming(message) {
-    if (debug)
+    if (showMessages)
         console.log('received: %s', message);
-    //pushToSQL(message);
+    if (useSQL)
+        pushToSQL(message);
 });
 
 
@@ -57,24 +60,26 @@ function getDateTime() {
 
 // Writes an entry to the SQL server
 function pushToSQL(json) {
-    var table = getTable(json);
-    if (debugSQL) {
-        console.log(json);
-        console.log(getKeys(json).toString());
-        console.log('INSERT INTO ' + table + ' VALUES ' + "(" + getValues(json) + ", " + rTime + ");");
+    if (useSQL) {
+        var table = getTable(json);
+        if (debugSQL) {
+            console.log(json);
+            console.log(getKeys(json).toString());
+            console.log('INSERT INTO ' + table + ' VALUES ' + "(" + getValues(json) + ", " + rTime + ");");
+        }
+        /*    if (table == "GainExperience")
+                connection.query('INSERT INTO ' + table + ' VALUES ' + "(" + getValues(json) + ", " + rTime + ");", function(err, result) {
+                    if (debugSQL)
+                        console.log("RESULT: " + err);
+
+                });
+            else*/
+        connection.query('INSERT INTO ' + table + ' VALUES ' + "(" + getValues(json) + ", " + getDateTime() + ");", function(err, result) {
+            if (debugSQL)
+                console.log("RESULT: " + err);
+
+        });
     }
-    if (table == "GainExperience")
-        connection.query('INSERT INTO ' + table + ' VALUES ' + "(" + getValues(json) + ", " + rTime + ");", function(err, result) {
-            if (debugSQL)
-                console.log("RESULT: " + err);
-
-        });
-    else
-        connection.query('INSERT INTO ' + table + ' VALUES ' + "(" + getValues(json) + ");", function(err, result) {
-            if (debugSQL)
-                console.log("RESULT: " + err);
-
-        });
 }
 
 function getTable(json) {
@@ -100,8 +105,8 @@ function getKeys(obj) {
     }
     str += (", '" + keys[keys.length - 1] + "'");
     return str;
-}
 
+}
 function getValues(obj) {
     var str = "";
     var keys = Object.keys(obj);
@@ -115,13 +120,36 @@ function getValues(obj) {
     str += (", '" + obj[keys[keys.length - 1]] + "'");
     return str;
 }
+// All paramaters are arrays
+function subscribe(characters, worlds, eventNames) {
+    var json = {
+        "service": "event",
+        "action": "subscribe",
+        "characters": characters,
+        "worlds": worlds,
+        "eventNames": eventNames};
+    console.log("JSON " + JSON.stringify(json));
+    send(JSON.stringify(json));
+}
+// All paramaters are arrays
+function unsubscribe(characters, worlds, eventNames) {
+    var json = {
+        "service": "event",
+        "action": "clearSubscribe",
+        "characters": characters,
+        "worlds": worlds,
+        "eventNames": eventNames};
+    console.log("JSON " + JSON.stringify(json));
+    send(JSON.stringify(json));
+}
 
 // Database to push to
-var connection = mysql.createConnection({
-    host: config.get('host'),
-    user: config.get('user'),
-    password: config.get('password'),
-    database: config.get('database')
-});
-
-connection.connect();
+if (useSQL) {
+    var connection = mysql.createConnection({
+        host: config.get('host'),
+        user: config.get('user'),
+        password: config.get('password'),
+        database: config.get('database')
+    });
+    connection.connect();
+}
