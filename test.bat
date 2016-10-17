@@ -1,0 +1,2 @@
+node stream.js
+pause

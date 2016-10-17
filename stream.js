@@ -6,23 +6,23 @@ if (useSQL)
     var mysql = require('mysql');
 var serviceID = config.get('serviceID');
 var debug = false;
-var showMessages = true;
+var showMessages = false;
 var ws = new WebSocket("wss://push.planetside2.com/streaming?environment=ps2&service-id=s:" + serviceID);
 
 // Opens Websocket
 ws.on('open', function open() {
     console.log("Connected");
     subscribe(["all"], ["all"], ["all"]);
-    unsubscribe(["all"], ["all"], ["all"]);
+   //unsubscribe(["all"], ["all"], ["all"]);
 });
 
 // Executed whenever ws recieves a message
-ws.on('message', function incoming(message) {
-    if (showMessages)
-        console.log('received: %s', message);
-    if (useSQL)
-        pushToSQL(message);
-});
+		ws.on('message', (data) => {
+			let json = JSON.parse(data)
+			if(showMessages)
+			console.log('got message', json)
+		pushToSQL(json);
+		})
 
 
 function send(msg) {
@@ -83,7 +83,7 @@ function pushToSQL(json) {
 }
 
 function getTable(json) {
-    return getVal(json, 'jsonData[payload][event_name]')
+    return json["payload"["event_name"]];
 }
 
 function getVal(obj, key) {
@@ -128,7 +128,6 @@ function subscribe(characters, worlds, eventNames) {
         "characters": characters,
         "worlds": worlds,
         "eventNames": eventNames};
-    console.log("JSON " + JSON.stringify(json));
     send(JSON.stringify(json));
 }
 // All paramaters are arrays
@@ -139,7 +138,6 @@ function unsubscribe(characters, worlds, eventNames) {
         "characters": characters,
         "worlds": worlds,
         "eventNames": eventNames};
-    console.log("JSON " + JSON.stringify(json));
     send(JSON.stringify(json));
 }
 
